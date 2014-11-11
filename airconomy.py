@@ -1,9 +1,24 @@
 
 # coding: utf-8
 
-# In[1]:
+# In[13]:
 
+# imports
+import pandas as pd
+import numpy as np
 import bz2
+import matplotlib.pyplot as plt
+import re
+
+
+# In[ ]:
+
+
+
+
+# In[ ]:
+
+# count the number of lines in files
 
 
 # In[2]:
@@ -24,7 +39,12 @@ bookings_file_num_lines = i+1
 
 # In[5]:
 
-print('Num lines of bookings file: ' + str(bookings_file_num_lines))
+print('Num lines in bookings file: ' + str(bookings_file_num_lines))
+
+
+# In[ ]:
+
+
 
 
 # In[6]:
@@ -45,59 +65,72 @@ searches_file_num_lines = i+1
 
 # In[9]:
 
-print('Num lines of searches file: ' + str(searches_file_num_lines))
+print('Num lines in searches file: ' + str(searches_file_num_lines))
 
 
-# In[1]:
-
-import numpy as np
+# In[ ]:
 
 
-# In[2]:
-
-import pandas as pd
 
 
-# In[4]:
+# In[ ]:
 
-# top ten arrivals in the world in 2013
-numLines = 10000011
+
+
+
+# In[ ]:
+
+# top ten arrivals in 2013
+
+
+# In[10]:
+
 skipLines = 1 # we skip the header line
 numChunks = 64
-chunkSize = np.ceil((numLines - skipLines) / (numChunks / 1.0)).astype(int)
-chunkSize
+bookings_chunkSize = np.ceil((bookings_file_num_lines - skipLines) / (numChunks / 1.0)).astype(int)
+bookings_chunkSize
 
 
-# In[ ]:
+# In[14]:
 
-reader = pd.read_csv(bookings_file, sep='\s*\^', skiprows=skipLines, chunksize=chunkSize, header=None)
-
-
-# In[ ]:
-
-chunk_results = {}
-for chunk in reader:
-    try:
-        tmp = chunk.ix[:,[12,34]].groupby(['X.13']).sum()
-        for key,value in dict(tmp['X.35']).iteritems():
-            try:
-                chunk_results[key] += value
-            except KeyError:
-                chunk_results[key] = []
-                chunk_results[key].append(value)
-    except Exception as e:
-        pass
+# retrieve the headers
+bookings_file.seek(0)
+bookings_headers_line = bookings_file.readline()
+# for getting the headers, we remove the trailing white spaces from the first line of the file and split on ^ .
+pattern = re.compile('\s*\^')
+bookings_headers = re.split(pattern, bookings_headers_line.strip())
 
 
-# In[ ]:
+# In[15]:
 
-reduced_results = []
-for key,values in chunk_results.iteritems():
-    reduced_results.append((key, sum(values).astype(int)))
+# we don't bookings_file.seek(0) so we skip the first line (i.e. the headers)
+bookings_reader = pd.read_csv(bookings_file, sep='\s*\^', skiprows=0, chunksize=bookings_chunkSize, names=bookings_headers)
 
 
-# In[ ]:
+# In[16]:
 
+arr_port_pax = {}
+for chunk in bookings_reader:
+    tmp = chunk[chunk['year'] == 2013].ix[:,['arr_port','pax']].groupby(['arr_port']).sum()
+    for key,value in dict(tmp['pax']).iteritems():
+        try:
+            arr_port_pax[key] += value
+        except KeyError:
+            arr_port_pax[key] = []
+            arr_port_pax[key].append(value)
+
+
+# In[17]:
+
+# the reduce part should be useless
+arr_port_pax_reduced = []
+for key,values in arr_port_pax.iteritems():
+    arr_port_pax_reduced.append((key, sum(values).astype(int)))
+
+
+# In[18]:
+
+# comparator for tuples
 def tuple_sort (a, b):
     if a[1] < b[1]:
         return 1
@@ -107,12 +140,17 @@ def tuple_sort (a, b):
         return cmp(a[0], b[0])
 
 
+# In[19]:
+
+arr_port_pax_reduced.sort(tuple_sort)
+
+
+# In[20]:
+
+arr_port_pax_reduced[0:10] # top ten arrival airports 2013
+
+
 # In[ ]:
 
-reduced_results.sort(tuple_sort)
 
-
-# In[ ]:
-
-reduced_results[0:10]
 
