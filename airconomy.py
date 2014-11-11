@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[13]:
+# In[2]:
 
 # imports
 import pandas as pd
@@ -47,7 +47,7 @@ print('Num lines in bookings file: ' + str(bookings_file_num_lines))
 
 
 
-# In[6]:
+# In[5]:
 
 searches_file = bz2.BZ2File("/home/elvio/workspace_airconomy/data/searches.csv.bz2", 'r')
 
@@ -148,6 +148,135 @@ arr_port_pax_reduced.sort(tuple_sort)
 # In[20]:
 
 arr_port_pax_reduced[0:10] # top ten arrival airports 2013
+
+
+# In[ ]:
+
+
+
+
+# In[ ]:
+
+
+
+
+# In[ ]:
+
+# monthly number of searches for flights arriving at Malaga, Madrid or Barcelona
+
+
+# In[3]:
+
+searches_file_num_lines = 20390199
+skipLines = 1 # we skip the header line
+numChunks = 64
+searches_chunkSize = np.ceil((searches_file_num_lines - skipLines) / (numChunks / 1.0)).astype(int)
+searches_chunkSize
+
+
+# In[4]:
+
+airports = { 'AGP': 'Malaga', 'MAD': 'Madrid', 'BCN': 'Barcelona'}
+
+
+# In[6]:
+
+searches_header_line = searches_file.readline()
+
+
+# In[8]:
+
+# for getting the headers, we remove the trailing white spaces from the first line of the file and split on ^ .
+searches_headers = searches_header_line.strip().split('^')
+
+
+# In[9]:
+
+# read the file chunk by chunk and filter each chunk before the concat
+searches_file.seek(0)
+searches_file.readline() # skip the first line
+chunk_reader = pd.read_csv(searches_file, sep='\^', skiprows=0, names=searches_headers, chunksize=searches_chunkSize)
+# ignore the index during the concatenation
+df = pd.concat([chunk[chunk['Destination'].isin(airports.keys())].ix[:, ['Date', 'Destination']] for chunk in chunk_reader], ignore_index=True)
+df
+
+
+# In[10]:
+
+# define a new column that will contain only the date year and month
+year_month = []
+for i in range(len(df['Date'])):
+    year_month.append(df.get_value(i, 'Date')[:-3])
+df['year_month'] = year_month
+
+
+# In[11]:
+
+df.ix[:, ['Date', 'Destination', 'year_month']][0:10]
+
+
+# In[12]:
+
+# groupby
+df_groupedby = df.groupby(['Destination', 'year_month']).count()
+
+
+# In[13]:
+
+# rename column that stores the num of searches
+df_num_searches = df_groupedby.ix[:, ['Date']]
+df_num_searches.columns = ['num_searches']
+
+
+# In[14]:
+
+df_num_searches
+
+
+# In[15]:
+
+# build the x axis
+x = range(len(df_num_searches.ix['AGP'].index.values))
+x
+
+
+# In[16]:
+
+# define the ticks for the x axis
+xticks = df_num_searches.ix['AGP'].index.tolist()
+xticks
+
+
+# In[17]:
+
+# values of the index of level 0
+df_num_searches.index.levels[0]
+
+
+# In[19]:
+
+# loop on the index of level 0 (i.e. the airport) and plot
+# at the same time we build the legend
+labels = []
+ax = df_num_searches.ix[df_num_searches.index.levels[0][0]].plot(kind='line', use_index=False)
+labels.append(airports[df_num_searches.index.levels[0][0]])
+for label in df_num_searches.index.levels[0][1:]:
+    df_num_searches.ix[label].plot(kind='line', use_index=False, ax=ax)
+    labels.append(airports[label])
+    plt.xticks(x, xticks)
+plt.legend(labels, title='Destination airports')
+plt.xlabel('months')
+plt.ylabel('num searches')
+plt.title('Num searches per month')
+plt.show()
+plt.clf()
+plt.cla()
+plt.close()
+
+
+# In[20]:
+
+searches_file.close()
 
 
 # In[ ]:
